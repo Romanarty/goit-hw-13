@@ -1,66 +1,61 @@
-import Notiflix from 'notiflix';
-import templateCard from './template/template-card.hbs';
-import getRefs from './js/refs';
+
 import './sass/main.scss';
-import NewQueryService from './js/query-service';
-const refs = getRefs();
+import { Notify } from "notiflix";
+import eventsTemplatesTumb from './templates/events_tumb';
+import API from './js/api-service'
+import refsGet from './js/refs';
 
-refs.form.addEventListener('submit', onSubmit);
+const newAPI = API.feachImages();
 
-window.addEventListener('scroll', onScroll);
-const queryService = new NewQueryService();
+const refs = refsGet();
 
+let valueForm = '';
+let numberOfPages = 1;
 
-async function onSubmit(e) {
-    e.preventDefault();
-    if (e.currentTarget.elements.searchQuery.value === '') {
-        return Notiflix.Notify.warning('oops! Nothing is entered!'); 
-    }
-    
-     queryService.query = e.currentTarget.elements.searchQuery.value;
-    queryService.resetPage();
-   await queryService.fetchDate().then(({ hits, totalHits })=> {
-        clearGallery();
-       Notiflix.Notify.success(`Hooray! We found ${totalHits} images.`);
-        renderGallery(hits);
-    });
-  
+refs.searchForm.addEventListener('submit', onSearch);
+refs.BtnShowMore.addEventListener('click', onSearchBTN);
+
+refs.BtnShowMore.style.visibility = 'hidden';
+
+function onSearch(evt) {
+   evt.preventDefault();
+   refs.BtnShowMore.style.visibility = 'hidden';
+   refs.galleryList.innerHTML = '';
+   numberOfPages = 1
+   const form = evt.currentTarget;
+   valueForm = form.elements.searchQuery.value.trim();   
+   imgegeHBS(valueForm, numberOfPages);       
 }
 
+function onSearchBTN(evt) {
+   numberOfPages += 1;
+   imgegeHBS(valueForm, numberOfPages);
+   
+}
 
-async function onScroll() {
-    
-    const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
-    
-    if (scrollTop + clientHeight > scrollHeight - 10) {
-       
-        try {
+function imgegeHBS(valueForm, numberOfPages) { 
+   try {
+      API.feachImages(valueForm, numberOfPages)
+         .then(data => {
         
-            await queryService.fetchDate().then(({ hits }) => {
-        
-                if (hits.length === 0) {
-                    
-                }
-                renderGallery(hits);
-            });
-        }
-        
-        catch (error) {
-            Notiflix.Notify.info("We're sorry, but you've reached the end of search results.");
-                   
-        }
-        return;
-    }
-    return;
-}
-
-
-
-function renderGallery(t) {
-    refs.gallery.insertAdjacentHTML('beforeend', templateCard(t));
-
-}
-
-function clearGallery() {
-    refs.gallery.innerHTML = '';
-}
+            if (data.totalHits === 0) {
+               Notify.failure("Sorry, there are no images matching your search query. Please try again.");
+               
+            } else if (data.hits.length === 0) {
+               refs.BtnShowMore.style.visibility = 'hidden';
+               Notify.failure("We're sorry, but you've reached the end of search results.");
+            } else {
+                  Notify.success('Hooray! We found images.');
+                  data.hits.forEach((hits) => {
+                  refs.galleryList.insertAdjacentHTML('beforeend', eventsTemplatesTumb(hits));
+                     refs.BtnShowMore.style.visibility = 'visible';
+                      
+                  })
+               
+            }
+         })
+   }
+       catch (error) {
+      console.log(error);
+   }
+};
